@@ -7,6 +7,8 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-16
+
 ### Added
 
 - Pool of VPSes behind a loopback router, with automatic failover. One bucket
