@@ -22,6 +22,8 @@
 # Release with that section as notes (needs `gh` authenticated).
 # Anything else changed in the tree is included in the release commit, so
 # review `git status` first. Never put secrets in the notes.
+# If the repo has a package.json with a top-level "version", it is bumped in
+# step and committed too (formatting preserved, first match only).
 set -euo pipefail
 
 usage() {
@@ -111,6 +113,23 @@ DIRTY="$(git -C "$ROOT" status --porcelain -- . ':!VERSION' ':!CHANGELOG.md' || 
 [[ -z "$DIRTY" ]] || die "uncommitted changes outside VERSION/CHANGELOG.md. Commit or stash first:
 $DIRTY"
 
+# Keep package.json in step when it carries a version (Node projects).
+# Formatting is preserved by string replacement; only the first match moves.
+PKG_SYNCED=0
+PKG_FILE="$ROOT/package.json"
+sync_package_json() {
+  command -v node >/dev/null 2>&1 || die "package.json has a version but node is missing to sync it"
+  node -e '
+    const fs = require("fs");
+    const p = process.argv[1], ver = process.argv[2];
+    const s = fs.readFileSync(p, "utf8");
+    const re = /("version"\s*:\s*")[^"]*(")/;
+    if (!re.test(s)) { console.error("no top-level version field"); process.exit(1); }
+    fs.writeFileSync(p, s.replace(re, "$1" + ver + "$2"));
+  ' "$PKG_FILE" "$NEW" || die "package.json version sync failed"
+  PKG_SYNCED=1
+}
+
 # --auto-notes: fill an empty [Unreleased] from commits since the previous
 # tag. Grouped by conventional prefixes, everything else under Changed.
 if [[ "$AUTO_NOTES" == "1" ]]; then
@@ -129,7 +148,7 @@ if [[ "$AUTO_NOTES" == "1" ]]; then
         *) GEN_CHANGED="$GEN_CHANGED- $clean
 " ;;
       esac
-    done < <(git -C "$ROOT" log --format='%s' "${PREV_TAG}..HEAD" -- . ':!VERSION' ':!CHANGELOG.md' || true)
+    done < <(git -C "$ROOT" log --format='%s' "${PREV_TAG}..HEAD" -- . ':!VERSION' ':!CHANGELOG.md' ':!package.json' || true)
     GEN=""; [[ -n "$GEN_ADDED" ]] && GEN="$GEN
 ### Added
 
@@ -190,7 +209,12 @@ fi
 NOTES_FILE="$(mktemp)"
 printf '%s\n' "$NOTES" >"$NOTES_FILE"
 
+if [[ -f "$PKG_FILE" ]] && node -e 'const v=(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).version||"");process.exit(v?0:1)' "$PKG_FILE" 2>/dev/null; then
+  sync_package_json
+fi
+
 git -C "$ROOT" add VERSION CHANGELOG.md
+[[ "$PKG_SYNCED" == "1" ]] && git -C "$ROOT" add package.json
 git -C "$ROOT" commit -m "Release $TAG" >/dev/null
 git -C "$ROOT" tag -a "$TAG" -m "Release $TAG"
 BRANCH="$(git -C "$ROOT" branch --show-current)"

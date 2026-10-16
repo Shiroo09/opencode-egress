@@ -12,6 +12,7 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
 - `scripts/release.sh --auto-notes`: build empty release notes from commits
   since the previous tag (conventional subjects grouped), plus
   `--print-notes` preview, a dirty-tree guard, and a key-material scan.
+- `scripts/release.sh` syncs a top-level `package.json` version in step.
 
 ### Fixed
 
