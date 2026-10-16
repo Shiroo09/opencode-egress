@@ -315,10 +315,32 @@ scripts/setup-vps.sh          run once per VPS, as root
 scripts/egress.sh             tunnels, router, proxy setting, status
 scripts/egress-router.mjs     loopback router + control API (Node stdlib only)
 scripts/egress-router.test.mjs  hermetic router test: node scripts/egress-router.test.mjs
+scripts/release.sh            semver bump + changelog + tag + GitHub Release
+VERSION / CHANGELOG.md        version source of truth + release notes
 plugins/egress-rotate/        OpenCode plugin: rotate + re-send on limit
 plugins/egress-rotate/test.mjs  plugin simulation: node plugins/egress-rotate/test.mjs
 contrib/opencode-egress.service   optional systemd user unit for one tunnel
 ```
+
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
+in `VERSION`, notes in `CHANGELOG.md`, one annotated tag `vX.Y.Z` and one
+GitHub Release per version. The release notes are the source of truth for
+what changed, what was fixed, and how to upgrade.
+
+To ship a new version, write the entry under `[Unreleased]` and run:
+
+```sh
+scripts/release.sh minor   # 0.2.0 -> 0.3.0 (new feature)
+scripts/release.sh patch   # 0.2.0 -> 0.2.1 (fix)
+scripts/release.sh major   # 0.2.0 -> 1.0.0 (breaking change)
+```
+
+It bumps `VERSION`, moves the notes to the new version, commits, tags,
+pushes, and creates the GitHub Release (needs `gh` authenticated). The same
+script works in your other projects: copy `scripts/release.sh` next to a
+`VERSION` file and a Keep-a-Changelog `CHANGELOG.md`.
 
 ## License
 
