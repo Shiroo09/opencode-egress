@@ -338,9 +338,17 @@ scripts/release.sh major   # 0.2.0 -> 1.0.0 (breaking change)
 ```
 
 It bumps `VERSION`, moves the notes to the new version, commits, tags,
-pushes, and creates the GitHub Release (needs `gh` authenticated). The same
-script works in your other projects: copy `scripts/release.sh` next to a
-`VERSION` file and a Keep-a-Changelog `CHANGELOG.md`.
+pushes, and creates the GitHub Release (needs `gh` authenticated). In a
+hurry, skip the changelog and let the commits speak:
+
+```sh
+scripts/release.sh minor --auto-notes                # notes from commits
+scripts/release.sh minor --auto-notes --print-notes  # preview, no changes
+```
+
+`--auto-notes` groups conventional subjects (`feat:`, `fix:`, …) and refuses
+anything that smells like key material. It also refuses a dirty tree outside
+`VERSION`/`CHANGELOG.md`, so a release never silently leaves work behind.
 
 ## License
 
