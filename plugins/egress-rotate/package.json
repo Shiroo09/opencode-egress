@@ -1,0 +1,6 @@
+{
+  "name": "opencode-egress-rotate",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Rotate opencode-egress across your VPS pool when the free-tier bucket of the current IP is spent"
+}
