@@ -7,6 +7,12 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/release.sh`: GitHub slug regex used a non-greedy `+?`, invalid
+  in POSIX ERE, so the compare link was skipped on some systems. Now matches
+  both HTTPS and SSH remotes.
+
 ## [0.2.0] - 2026-10-16
 
 ### Added

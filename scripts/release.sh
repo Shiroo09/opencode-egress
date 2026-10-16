@@ -91,8 +91,8 @@ NOTES="$(section_body "$NEW" "$CHANGELOG")"
 PREV_TAG="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || true)"
 REPO="$(git -C "$ROOT" config --get remote.origin.url 2>/dev/null || true)"
 SLUG=""
-if [[ "$REPO" =~ github\.com[:/]([^/]+/[^/]+?)(\.git)?$ ]]; then
-  SLUG="${BASH_REMATCH[1]}"
+if [[ "$REPO" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
+  SLUG="${BASH_REMATCH[1]%.git}"
 fi
 if [[ -n "$PREV_TAG" && -n "$SLUG" ]]; then
   NOTES="$NOTES
