@@ -1,0 +1,37 @@
+name: model-sync
+
+# Keeps models.json in sync with opencode's Zen catalog: new -free models get
+# appended, models upstream no longer offers get removed, and the existing order
+# is preserved so the default model doesn't jump around. Runs a few times a day
+# and can be triggered manually from the Actions tab.
+#
+# There is deliberately no health probe here. The free tier only answers requests
+# that look like genuine agent traffic, so a synthetic probe is refused with 403
+# FreeTierError whether or not the model actually works — and a retired model is
+# refused the same way. The public /models catalog needs no auth and is the only
+# authoritative answer to "which free models exist".
+on:
+  schedule:
+    - cron: "17 */6 * * *" # every 6 hours, minute 17
+  workflow_dispatch:
+
+concurrency:
+  group: model-sync
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync free model list
+        run: node scripts/sync-models.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}

@@ -139,6 +139,16 @@ function log(...args) {
   console.log(new Date().toISOString(), ...args);
 }
 
+// Rolling window of requests the router actually forwarded. TLS hides the
+// path and the body, so a row is host:port, the egress it left on, and the
+// result. Loopback control only, never written to disk.
+const RECENT_MAX = 200;
+const recent = [];
+function note(row) {
+  recent.push({ t: new Date().toISOString(), ...row });
+  if (recent.length > RECENT_MAX) recent.shift();
+}
+
 // Read from socket until full HTTP headers are buffered (or limit hit).
 function readHeaders(sock, firstChunk) {
   return new Promise((resolve, reject) => {
@@ -306,6 +316,7 @@ async function handleClient(cfg, state, client) {
           log(`active -> ${name} (direct)`);
         }
         pipe(client, upstream);
+        note({ host: t.host, port: t.port, method: t.method, via: name, result: "ok" });
         return;
       }
       // via VPS tinyproxy
@@ -333,6 +344,7 @@ async function handleClient(cfg, state, client) {
       }
       delete state.down[name];
       pipe(client, proxy);
+      note({ host: t.host, port: t.port, method: t.method, via: name, result: "ok" });
       return;
     } catch (err) {
       lastErr = err;
@@ -342,6 +354,7 @@ async function handleClient(cfg, state, client) {
 
   saveState(cfg.state, state);
   log(`all egresses failed (${lastErr ? lastErr.message : "none usable"})`);
+  note({ host: t.host, port: t.port, method: t.method, via: null, result: "fail" });
   try {
     client.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
   } catch {
@@ -390,6 +403,12 @@ function startControl(cfg, state) {
         });
         return;
       }
+      if (req.method === "GET" && url.pathname === "/recent") {
+        const n = Math.min(RECENT_MAX, Math.max(1, Number(url.searchParams.get("n")) || 50));
+        send(200, { count: recent.length, rows: recent.slice(-n) });
+        return;
+      }
+
       if (req.method === "POST" && url.pathname === "/next") {
         const name = rotate(state, cfg, now);
         saveState(cfg.state, state);

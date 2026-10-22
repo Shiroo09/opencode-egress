@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Start Claude Code wired to a local zen-proxy. One command: this starts the
+# proxy if it is not already running, registers every free Zen model in Claude
+# Code's /model picker, and cleans up on exit.
+#
+#   zen-claude
+#   zen-claude "fix the failing test"
+set -uo pipefail
+
+# The installer links this into ~/.local/bin, so resolve the symlink before
+# looking for anything beside the real script.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  LINK_DIR="$(cd -P "$(dirname -- "$SOURCE")" && pwd)"
+  SOURCE="$(readlink -- "$SOURCE")"
+  case "$SOURCE" in /*) ;; *) SOURCE="$LINK_DIR/$SOURCE" ;; esac
+done
+HERE="$(cd -P "$(dirname -- "$SOURCE")" && pwd)"
+ROOT="$(cd -P "$HERE/.." && pwd)"
+
+die() { printf '%s\n' "$1" >&2; exit "${2:-1}"; }
+
+# ---- 1. Claude Code must be installed --------------------------------------
+if ! command -v claude >/dev/null 2>&1; then
+  die "zen-claude: Claude Code is not installed.
+
+  Install it, then run zen-claude again:
+    npm install -g @anthropic-ai/claude-code
+    (or: https://claude.com/claude-code)
+
+  If it is installed but not on your PATH, open a new terminal so PATH updates
+  take effect, or check: command -v claude"
+fi
+
+# ---- 2. Locate the proxy and its config ------------------------------------
+MAIN=""
+for c in "$ROOT/zen-proxy.mjs" "$ROOT/../zen-proxy.mjs" "$HERE/../zen-proxy.mjs"; do
+  [ -f "$c" ] && { MAIN="$c"; break; }
+done
+[ -n "$MAIN" ] || die "zen-claude: could not find zen-proxy.mjs"
+
+CONFIG="${ZEN_PROXY_CONFIG:-}"
+[ -n "$CONFIG" ] || { for c in "$ROOT/zen-proxy.json" "$ROOT/../zen-proxy.json"; do [ -f "$c" ] && { CONFIG="$c"; break; }; done; }
+PORT=8787
+if [ -n "$CONFIG" ] && [ -f "$CONFIG" ]; then
+  PORT="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).port||8787)}catch{console.log(8787)}' "$CONFIG" 2>/dev/null || echo 8787)"
+fi
+
+healthy() { curl -fsS -m 2 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; }
+
+# ---- 3. Start the proxy if it is not already up ----------------------------
+STARTED_PID=""
+STARTED_LOG=""
+RUNFLAG=""
+# Owns the proxy's lifetime while Claude Code runs: restarts it if it ever goes
+# away, and stops it when Claude Code exits. A proxy that dies mid-session leaves
+# the agent talking to a closed port, and the only symptom is a connection
+# error with nothing in the log — the run flag is how the watcher learns that
+# Claude Code is still going.
+watch_proxy() {
+  local restarts=0 pid="$STARTED_PID"
+  while [ -n "$RUNFLAG" ] && [ -f "$RUNFLAG" ]; do
+    sleep 2
+    [ -f "$RUNFLAG" ] || break
+    healthy && continue
+    restarts=$((restarts + 1))
+    if [ "$restarts" -gt 10 ]; then
+      printf 'zen-claude: zen-proxy kept dying; giving up on restarts.\n' >&2
+      break
+    fi
+    printf 'zen-claude: zen-proxy stopped, restarting (%d/10)…\n' "$restarts" >&2
+    node "$MAIN" >>"$STARTED_LOG" 2>&1 &
+    pid=$!
+    for _ in $(seq 1 40); do
+      healthy && break
+      sleep 0.25
+    done
+  done
+  [ -n "$pid" ] && kill "$pid" 2>/dev/null
+  return 0
+}
+
+cleanup() {
+  if [ -n "${STARTED_PID:-}" ]; then kill "$STARTED_PID" 2>/dev/null; fi
+  [ -n "${STARTED_LOG:-}" ] && rm -f "$STARTED_LOG" 2>/dev/null
+  [ -n "${RUNFLAG:-}" ] && rm -f "$RUNFLAG" 2>/dev/null
+  [ -n "${SETTINGS:-}" ] && rm -f "$SETTINGS" 2>/dev/null
+  return 0
+}
+# Ctrl-C should still take the proxy down with us.
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
+trap cleanup EXIT
+
+if ! healthy; then
+  printf 'zen-claude: starting zen-proxy on port %s…\n' "$PORT" >&2
+  STARTED_LOG="${TMPDIR:-/tmp}/zen-proxy.$$.log"
+  node "$MAIN" >"$STARTED_LOG" 2>&1 &
+  STARTED_PID=$!
+  for _ in $(seq 1 40); do
+    healthy && break
+    kill -0 "$STARTED_PID" 2>/dev/null || break
+    sleep 0.25
+  done
+  if ! healthy; then
+    printf 'zen-claude: zen-proxy failed to start. Log:\n' >&2
+    tail -n 20 "$STARTED_LOG" >&2 2>/dev/null
+    rm -f "$STARTED_LOG" 2>/dev/null
+    exit 1
+  fi
+  RUNFLAG="$(mktemp "${TMPDIR:-/tmp}/zen-claude-run.XXXXXX")"
+  watch_proxy &
+fi
+
+# ---- 4. Build settings that list every free model -------------------------
+SETTINGS="$(mktemp "${TMPDIR:-/tmp}/zen-claude-settings.XXXXXX.json")"
+if ! COUNT="$(node "$HERE/make-settings.mjs" "$PORT" "$SETTINGS" 2>/dev/null)" || [ "${COUNT:-0}" -eq 0 ]; then
+  die "zen-claude: could not determine the free model list."
+fi
+
+# Not `exec`: exec would replace this shell and the EXIT trap would never run, so
+# an auto-started proxy would outlive the session.
+claude --settings "$SETTINGS" "$@"
+RC=$?
+cleanup
+exit $RC
