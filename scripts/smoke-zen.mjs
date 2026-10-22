@@ -57,6 +57,13 @@ try {
   assert.ok(hj.ok, "zen /health ok:true");
   console.log("health:", health.text);
 
+  const ui = await probe(`http://127.0.0.1:${ZEN_PORT}/`);
+  assert.ok(ui.text.includes("opencode-egress"), "dashboard markasi opencode-egress");
+  assert.ok(!ui.text.includes("ZEN·PROXY"), "eski marka kalmadi");
+  const logo = await probe(`http://127.0.0.1:${ZEN_PORT}/assets/logo.svg`);
+  assert.equal(logo.status, 200, "logo.svg sunuluyor");
+  console.log("dashboard: marka + logo OK");
+
   // models upstream'a gider; internet yoksa hata döner ama zincir yine de
   // kanıtlanır: istek router'ın /recent kaydına düşer.
   const models = await probe(`http://127.0.0.1:${ZEN_PORT}/v1/models`);

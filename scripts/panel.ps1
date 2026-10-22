@@ -13,7 +13,14 @@ $ControlPort = 8899
 $BasePort = 8891
 $Control = "http://127.0.0.1:$ControlPort"
 $ZenJs = Join-Path $Root 'vendor\zen-proxy\zen-proxy.mjs'
+$ConfigFile = Join-Path $ConfigDir 'config.json'
 $ZenPort = 8787
+if (Test-Path $ConfigFile) {
+    try {
+        $c = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+        if ($c.zenPort) { $ZenPort = [int]$c.zenPort }
+    } catch {}
+}
 
 function Say($text, $color) { Write-Host $text -ForegroundColor $color }
 
@@ -96,6 +103,7 @@ function Start-Zen {
     $env:NODE_USE_ENV_PROXY = '1'
     $env:HTTPS_PROXY = "http://127.0.0.1:$RouterPort"
     $env:NO_PROXY = 'localhost,127.0.0.1'
+    $env:PORT = "$ZenPort"
     Start-Process $node -WindowStyle Hidden -ArgumentList $ZenJs
     Say "zen-proxy aciliyor: 127.0.0.1:$ZenPort" DarkGray
 }
@@ -107,7 +115,6 @@ function Stop-Zen {
 
 $status = $null
 $seen = @{}
-$since = (Get-Date).ToUniversalTime().ToString('o')
 
 while ($true) {
     Clear-Host
@@ -153,10 +160,13 @@ while ($true) {
     }
 
     Say '' White
-    Say 'istekler  (son gelen ustte, yalniz bu oturum)' Cyan
+    Say 'istekler  (son gelen ustte, router gunlugu)' Cyan
+    if ($routerPid -and -not $recent) {
+        Say '  router eski surum — [K] kapat, [A] ac ile yeniden baslatin' Yellow
+    }
     $rows = @()
     if ($recent -and $recent.rows) { $rows = @($recent.rows) }
-    $fresh = @($rows | Where-Object { $_.t -gt $since } | Sort-Object t -Descending)
+    $fresh = @($rows | Sort-Object t -Descending)
     if (-not $fresh) {
         Say '  henuz istek yok' DarkGray
     } else {
@@ -175,7 +185,7 @@ while ($true) {
     }
 
     Say '' White
-    Say '[A] ac   [Z] zen-proxy   [K] kapat   [D] direct   [V] VPS   [S] sonraki   [Q] cik' Yellow
+    Say '[A] ac   [Z] zen-proxy   [P] port   [K] kapat   [D] direct   [V] VPS   [S] sonraki   [Q] cik' Yellow
     Say 'tus bekleniyor, istekler 2 sn de bir yenilenir' DarkGray
 
     $deadline = (Get-Date).AddSeconds(2)
@@ -190,6 +200,19 @@ while ($true) {
         'A' { Start-Pool; Start-Sleep -Seconds 2; Start-Zen }
         'K' { Stop-Pool }
         'Z' { if (Listening $ZenPort) { Stop-Zen } else { Start-Zen; Start-Sleep -Seconds 2 } }
+        'P' {
+            $in = Read-Host "zen-proxy portu (simdi: $ZenPort)"
+            if ($in -match '^\d+$' -and [int]$in -ge 1024 -and [int]$in -le 65535) {
+                Stop-Zen
+                $ZenPort = [int]$in
+                try { @{ zenPort = $ZenPort } | ConvertTo-Json | Set-Content $ConfigFile } catch {}
+                Say "zen-proxy portu artik: $ZenPort" Green
+                Start-Sleep -Seconds 1
+            } elseif ($in) {
+                Say 'gecersiz port' Red
+                Start-Sleep -Seconds 1
+            }
+        }
         'D' { Post-Json '/use' '{"name":"direct"}' | Out-Null }
         'V' {
             $first = @(Hosts) | Select-Object -First 1
