@@ -13,6 +13,10 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   since the previous tag (conventional subjects grouped), plus
   `--print-notes` preview, a dirty-tree guard, and a key-material scan.
 - `scripts/release.sh` syncs a top-level `package.json` version in step.
+- `scripts/router-boot.ps1`: starts the router at logon (HKCU `Run` entry) so
+  opencode's fixed `127.0.0.1:8888` proxy never goes missing; with tunnels down
+  the first connection falls back to `direct`. Panel `[K]` now stops tunnels and
+  the gateway only, `[X]` stops the router too.
 
 ### Changed
 

@@ -19,7 +19,7 @@ Kullanıcının tek aracı: `opencode-egress` PowerShell komutu → panel → VP
 - Dashboard `public/index.html` — favicon + auth img + header img `/assets/logo.svg`.
 
 **Açık:**
-- Canlı router/panel eski kodla çalışıyor — panelde `K` → `A`.
+- Opencode `service.json` kalıcı `HTTPS_PROXY=127.0.0.1:8888` kullanır → router zorunlu. Çözüm: `scripts/router-boot.ps1` HKCU `Run` ile açılışta başlar; `[K]` router'ı öldürmez, `[X]` öldürür.
 - Görsel QA yapılmadı (playwright chromium kurulu değil, onaysız kurulum yasak).
 - Dashboard'daki `zenKey`/`cfgZenKey` alanları **opencode Zen BYOK** ayarıdır, ürün adı değil — yeniden adlandırılmadı.
 

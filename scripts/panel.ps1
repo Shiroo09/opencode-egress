@@ -78,16 +78,22 @@ function Start-Pool {
 }
 
 function Stop-Pool {
-    foreach ($port in @($RouterPort, $ControlPort)) {
-        $pid_ = Listening $port
-        if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
-    }
     $list = @(Hosts)
     for ($i = 0; $i -lt $list.Count; $i++) {
         $pid_ = Listening ($BasePort + $i)
         if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
     }
     Stop-Gate
+    # Router açık kalır: opencode 127.0.0.1:8888 proxy'sine bağlı.
+    Say 'router acik kaldi (opencode icin) — tamamen kapatmak: [X]' DarkGray
+}
+
+function Stop-All {
+    Stop-Pool
+    foreach ($port in @($RouterPort, $ControlPort)) {
+        $pid_ = Listening $port
+        if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
+    }
 }
 
 function Start-Gate {
@@ -186,7 +192,7 @@ while ($true) {
     }
 
     Say '' White
-    Say '[A] ac   [Z] modelgate   [P] port   [K] kapat   [D] direct   [V] VPS   [S] sonraki   [Q] cik' Yellow
+    Say '[A] ac   [Z] modelgate   [P] port   [K] tunelleri kapat   [X] her sey   [D] direct   [V] VPS   [S] sonraki   [Q] cik' Yellow
     Say 'tus bekleniyor, istekler 2 sn de bir yenilenir' DarkGray
 
     $deadline = (Get-Date).AddSeconds(2)
@@ -200,6 +206,7 @@ while ($true) {
     switch ($key.Key) {
         'A' { Start-Pool; Start-Sleep -Seconds 2; Start-Gate }
         'K' { Stop-Pool }
+        'X' { Stop-All }
         'Z' { if (Listening $GatePort) { Stop-Gate } else { Start-Gate; Start-Sleep -Seconds 2 } }
         'P' {
             $in = Read-Host "modelgate portu (simdi: $GatePort)"
