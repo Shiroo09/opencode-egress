@@ -165,7 +165,7 @@ With it, a spent bucket rotates by itself:
 ```jsonc
 // ~/.config/opencode/opencode.jsonc
 {
-  "plugin": ["file:///C:/Users/Samet/Documents/Projeler/opencode-egress/plugins/egress-rotate/index.ts"]
+  "plugin": ["file:///C:/path/to/opencode-egress/plugins/egress-rotate/index.ts"]
 }
 ```
 

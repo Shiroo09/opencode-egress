@@ -6,5 +6,11 @@ Thumbs.db
 .vds-host
 .serena/
 
+# Local runtime state (VPS host list, ports, router rotation) — never commit.
+hosts
+config.json
+router-state.json
+egress-ssh-*.log
+
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
