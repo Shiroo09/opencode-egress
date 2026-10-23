@@ -29,6 +29,9 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
 
 ### Fixed
 
+- Panel no longer clears the screen on every refresh; the frame is redrawn in
+  place (cursor home + padded lines), so the menu stops flickering while
+  requests keep updating automatically. The "refreshes every 2 s" caption is gone.
 - `scripts/release.sh`: GitHub slug regex used a non-greedy `+?`, invalid
   in POSIX ERE, so the compare link was skipped on some systems. Now matches
   both HTTPS and SSH remotes.

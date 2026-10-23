@@ -23,7 +23,38 @@ if (Test-Path $ConfigFile) {
     } catch {}
 }
 
-function Say($text, $color) { Write-Host $text -ForegroundColor $color }
+# Kare ekranı silmeden yerinde çizilir: Clear-Host her 2 sn'de bir titretiyordu.
+# Say satırı pencere genişliğine doldurur, böylece eski satır kuyruğu kalmasın.
+$script:frameCount = 0
+$script:prevCount = 0
+$script:inFrame = $false
+$script:drawn = $false
+
+function Say($text, $color) {
+    $w = 0
+    try { $w = [Console]::WindowWidth - 1 } catch {}
+    if ($w -gt 0 -and $text.Length -lt $w) { $text = $text.PadRight($w) }
+    Write-Host $text -ForegroundColor $color
+    if ($script:inFrame) { $script:frameCount++ }
+}
+
+function Begin-Frame {
+    try {
+        if ($script:drawn) { [Console]::SetCursorPosition(0, 0) } else { Clear-Host; $script:drawn = $true }
+    } catch { Clear-Host }
+    $script:inFrame = $true
+    $script:frameCount = 0
+}
+
+function End-Frame {
+    $w = 0
+    try { $w = [Console]::WindowWidth - 1 } catch {}
+    if ($w -gt 0 -and $script:frameCount -lt $script:prevCount) {
+        for ($i = $script:frameCount; $i -lt $script:prevCount; $i++) { Write-Host (' ' * $w) }
+    }
+    $script:prevCount = $script:frameCount
+    $script:inFrame = $false
+}
 
 function Listening($port) {
     $c = Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
@@ -124,7 +155,7 @@ $status = $null
 $seen = @{}
 
 while ($true) {
-    Clear-Host
+    Begin-Frame
     $routerPid = Listening $RouterPort
     $status = if ($routerPid) { Get-Json "$Control/status" } else { $null }
     $recent = if ($routerPid) { Get-Json "$Control/recent?n=200" } else { $null }
@@ -193,7 +224,8 @@ while ($true) {
 
     Say '' White
     Say '[A] ac   [Z] modelgate   [P] port   [K] tunelleri kapat   [X] her sey   [D] direct   [V] VPS   [S] sonraki   [Q] cik' Yellow
-    Say 'tus bekleniyor, istekler 2 sn de bir yenilenir' DarkGray
+    Say 'tus bekleniyor' DarkGray
+    End-Frame
 
     $deadline = (Get-Date).AddSeconds(2)
     $key = $null
