@@ -13,10 +13,24 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ROUTER_PORT = 18888;
 const CONTROL_PORT = 18899;
-const ZEN_PORT = 18787;
+// The vendored zen-proxy.json pins a port and overrides PORT, so the smoke
+// run needs its own config copy; otherwise a half-finished run keeps the port.
+const ZEN_PORT = await new Promise((resolve) => {
+  const s = net.createServer().listen(0, "127.0.0.1", () => {
+    const p = s.address().port;
+    s.close(() => resolve(p));
+  });
+});
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "zen-smoke-"));
 const stateFile = path.join(tmp, "state.json");
+
+const shippedCfg = path.join(ROOT, "vendor", "modelgate", "zen-proxy.json");
+const gateCfg = path.join(tmp, "zen-proxy.json");
+const cfg = JSON.parse(fs.readFileSync(shippedCfg, "utf8"));
+cfg.port = ZEN_PORT;
+cfg.autoSync = false; // the run is short; no catalog refresh
+fs.writeFileSync(gateCfg, JSON.stringify(cfg, null, 2));
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const probe = async (url) => {
@@ -40,6 +54,7 @@ const zen = spawn(process.execPath, [path.join(ROOT, "vendor", "modelgate", "zen
   env: {
     ...process.env,
     PORT: String(ZEN_PORT),
+    ZEN_PROXY_CONFIG: gateCfg,
     NODE_USE_ENV_PROXY: "1",
     HTTPS_PROXY: `http://127.0.0.1:${ROUTER_PORT}`,
     NO_PROXY: "localhost,127.0.0.1",

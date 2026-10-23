@@ -104,6 +104,25 @@ assert.equal(calls.next, 1, "no second rotation within guard window");
 await plugin.event(retry("The request contains invalid parameters"));
 assert.equal(calls.next, 1, "non-limit error ignored");
 
+// 3b. The wording OpenCode v2 actually shows (screenshot, 2026-10-23).
+//     Guard reset so the assertion is about the pattern, not the cooldown.
+await plugin.event({ event: { type: "session.deleted", properties: { info: { id: "s1" } } } });
+await plugin.event(retry("Free usage limit reached. Subscribe to OpenCode Go to keep going: https://opencode.ai/go"));
+assert.equal(calls.next, 2, "Free usage limit reached rotates");
+
+// 3c. Empty message but structured provider.quota reason still rotates.
+await plugin.event({ event: { type: "session.deleted", properties: { info: { id: "s1" } } } });
+await plugin.event({
+  event: {
+    type: "session.status",
+    properties: {
+      sessionID: "s1",
+      status: { type: "retry", message: "provider stopped the reply", action: { reason: "provider.quota" } },
+    },
+  },
+});
+assert.equal(calls.next, 3, "action.reason provider.quota rotates");
+
 // 4. All egresses spent -> plugin stands down, normal retry continues.
 nextStatus = 409;
 calls.next = 0;

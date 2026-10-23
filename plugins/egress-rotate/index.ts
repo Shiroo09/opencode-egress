@@ -51,9 +51,17 @@ const rotating = new Set<string>();
 const lastRotation = new Map<string, number>();
 const ROTATE_GUARD_MS = 15000;
 
+// OpenCode renders the same limit several ways ("Free usage limit reached",
+// "free-usage-exceeded", "FREE USAGE LIMIT"), so compare with punctuation and
+// case stripped instead of exact substrings.
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
 function matches(patterns: string[], message: string): boolean {
-  const lower = message.toLowerCase();
-  return patterns.some((p) => lower.includes(p.toLowerCase()));
+  const m = norm(message);
+  return patterns.some((p) => {
+    const n = norm(p);
+    return n.length > 0 && m.includes(n);
+  });
 }
 
 async function routerPost(routerUrl: string, path: string, body: unknown): Promise<{ status: number; data: any }> {
@@ -95,7 +103,11 @@ export async function createPlugin(context: PluginInput): Promise<Hooks> {
       const props = event.properties as { sessionID: string; status: RetryStatus };
       if (props.status.type === "idle") return;
       if (props.status.type !== "retry" || !props.status.message) return;
-      if (!matches(config.patterns, props.status.message)) return;
+      // The structured reason is more reliable than the rendered sentence:
+      // a spent free bucket arrives as action.reason "provider.quota".
+      const reason = (props.status.action as { reason?: string } | undefined)?.reason ?? "";
+      const quotaReason = /quota|rate.?limit|usage/i.test(reason);
+      if (!quotaReason && !matches(config.patterns, props.status.message)) return;
 
       const sessionID = props.sessionID;
       const now = Date.now();
@@ -206,4 +218,10 @@ function convertToPromptPart(
   }
 }
 
-export default createPlugin;
+// OpenCode 2.x loads `{ id, setup }` and calls setup(context) for hooks.
+// `server` is the V1 field; keep it so a 1.18 install still works.
+export default {
+  id: "opencode-egress.rotate",
+  setup: createPlugin,
+  server: createPlugin,
+};

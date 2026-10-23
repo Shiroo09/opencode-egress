@@ -176,6 +176,7 @@ function Start-Pool {
     elseif ($a -match '^\d+$' -and [int]$a -ge 1 -and [int]$a -le $list.Count) { $pick = @($list[[int]$a - 1]) }
     else { Write-Host 'gecersiz secim' -ForegroundColor Red; Start-Sleep -Seconds 1; return }
 
+    Start-Watch
     foreach ($h in $pick) {
         $port = $BasePort + [array]::IndexOf($list, $h)
         $ok = Start-Tunnel $h $port
@@ -234,10 +235,17 @@ function Start-Gate {
     if (-not (Listening $RouterPort)) { Say 'modelgate icin router acik olmali (A)' Red; return }
     $node = (Get-Command node -ErrorAction SilentlyContinue).Source
     if (-not $node) { Say 'node yok' Red; return }
+    # The gateway reads its port from zen-proxy.json, not PORT: write the
+    # chosen port there or [P] would silently do nothing.
+    $GateCfg = Join-Path $Root 'vendor\modelgate\zen-proxy.json'
+    try {
+        $gc = if (Test-Path $GateCfg) { Get-Content $GateCfg -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+        $gc | Add-Member -NotePropertyName port -NotePropertyValue $Config.gatePort -Force
+        $gc | ConvertTo-Json -Depth 8 | Set-Content $GateCfg
+    } catch { Say 'modelgate config yazilamadi' Red; return }
     $env:NODE_USE_ENV_PROXY = '1'
     $env:HTTPS_PROXY = "http://127.0.0.1:$RouterPort"
     $env:NO_PROXY = 'localhost,127.0.0.1'
-    $env:PORT = "$($Config.gatePort)"
     Start-Process $node -WindowStyle Hidden -ArgumentList $GateJs
     Say "modelgate aciliyor: 127.0.0.1:$($Config.gatePort)" DarkGray
 }
@@ -246,6 +254,20 @@ function Stop-Gate {
     if (Is-Our-Process $Config.gatePort 'zen-proxy') {
         Stop-Process -Id (Listening $Config.gatePort) -Force -ErrorAction SilentlyContinue
     }
+}
+
+# Kota dolunca egress'i döndüren izleyici. OpenCode 2 plugin hook'unu
+# kaldırdığı için rotasyon burada; panelden bağımsız çalışır.
+function Watch-Pid {
+    (Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'egress-watch\.mjs' } | Select-Object -First 1).ProcessId
+}
+
+function Start-Watch {
+    if (Watch-Pid) { return }
+    $node = (Get-Command node -ErrorAction SilentlyContinue).Source
+    if (-not $node) { return }
+    Start-Process $node -WindowStyle Hidden -ArgumentList (Join-Path $PSScriptRoot 'egress-watch.mjs')
 }
 
 # --- Ayarlar --------------------------------------------------------------
@@ -359,6 +381,12 @@ while ($true) {
             Say ("  {0,-22} 127.0.0.1:{1}  tunel kapali" -f $h, $port) DarkGray
         }
         $i++
+    }
+    $watchPid = Watch-Pid
+    if ($watchPid) {
+        Say ("  {0,-22} acik  pid {1}  (kota dolunca egress doner)" -f 'izleyici', $watchPid) Green
+    } else {
+        Say ("  {0,-22} KAPALI - otomatik rotasyon yok" -f 'izleyici') Red
     }
     $gatePid = Listening $Config.gatePort
     $gateUp = if ($gatePid) { Get-Json "http://127.0.0.1:$($Config.gatePort)/health" } else { $null }

@@ -13,6 +13,14 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   since the previous tag (conventional subjects grouped), plus
   `--print-notes` preview, a dirty-tree guard, and a key-material scan.
 - `scripts/release.sh` syncs a top-level `package.json` version in step.
+- `scripts/egress-watch.mjs`: rotates the egress when OpenCode's free bucket
+  runs out. OpenCode 2 dropped the V1 plugin hook, so rotation now watches the
+  shared server's event stream (`~/.local/state/opencode/service.json`), marks
+  the active egress spent, rotates the router and re-sends the last user
+  message. Works for every client of that server (TUI, OpenChamber); started at
+  logon by `router-boot.ps1` and shown in the panel.
+- `scripts/egress-watch.test.mjs`: hermetic rotation test (stubbed service and
+  router, strict on the `GET /status` verb the real router requires).
 - Panel settings screen `[Y]`: add/remove VPS hosts, test SSH, modelgate port,
   auto-start toggle and refresh interval, saved to
   `~/.config/opencode-egress/config.json`. Every start/stop now asks first;
@@ -23,6 +31,20 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   opencode's fixed `127.0.0.1:8888` proxy never goes missing; with tunnels down
   the first connection falls back to `direct`. Panel `[K]` now stops tunnels and
   the gateway only, `[X]` stops the router too.
+
+### Fixed
+
+- `plugins/egress-rotate` never loaded on OpenCode 2.x ("configured plugin path
+  must be a directory", then "Plugin must export a default definition"): the
+  config now points at the plugin directory and `index.ts` exports
+  `{ id, setup, server }`. The rate-limit matcher also normalises punctuation,
+  so "Free usage limit reached." matches, and a structured `action.reason`
+  (`provider.quota`) rotates even when the text is generic.
+- modelgate's port came from `zen-proxy.json`, not `PORT`, so the panel's `[P]`
+  changed nothing. The panel now writes the chosen port into that file.
+- `scripts/smoke-zen.mjs` picked a fixed port and the shipped config overrode
+  it; a half-finished run then made the next one hit a stale gateway. It now
+  uses a free port and its own temporary config copy.
 
 ### Changed
 

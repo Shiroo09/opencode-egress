@@ -8,6 +8,7 @@ export interface EgressRotateConfig {
 
 const DEFAULT_PATTERNS = [
   "freeusagelimit",
+  "free usage limit",
   "free usage exceeded",
   "rate limit exceeded",
   "rate limit",

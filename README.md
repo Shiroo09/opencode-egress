@@ -261,6 +261,26 @@ Settings persist in `~/.config/opencode-egress/config.json`
 Checks: `powershell -NoProfile -File scripts/panel.test.ps1` (confirmation
 parser). Syntax: `powershell -NoProfile -Command "$e=$null; [System.Management.Automation.Language.Parser]::ParseFile('scripts/panel.ps1',[ref]$null,[ref]$e)"`.
 
+## Automatic rotation
+
+When OpenCode's free bucket for the current IP is spent ("Free usage limit
+reached"), the egress must change or every retry fails the same way.
+
+OpenCode 2 replaced the plugin API the old rotation plugin used, so rotation
+now runs outside the server: `scripts/egress-watch.mjs` connects to the shared
+OpenCode server's event stream, and on a quota failure marks the active egress
+spent, rotates the router and re-sends the last user message on the new IP.
+
+- Discovery: `~/.local/state/opencode/service.json` (`url` + `password`).
+- Every client of that server benefits — terminal TUI, OpenChamber, IDE.
+- Started at logon with the router (`scripts/router-boot.ps1`); the panel shows
+  it as `izleyici` and `[A]` starts it if it is missing.
+- Log: `~/.local/share/opencode/logs/egress-watch.log`.
+- No spare egress left? It stands down and lets OpenCode retry normally.
+
+The V1 plugin under `plugins/egress-rotate/` is kept for OpenCode 1.x installs;
+on 2.x it loads but its hook never fires, so the watcher is what rotates.
+
 ## After a reboot
 
 | Piece | Comes back on its own? |
@@ -270,6 +290,7 @@ parser). Syntax: `powershell -NoProfile -Command "$e=$null; [System.Management.A
 | Active egress choice | Yes. It is stored in `router-state.json`. |
 | SSH tunnels | No. They die with the session that opened them. |
 | Router | Yes on Windows: `scripts/router-boot.ps1` runs from the `HKCU\...\Run` entry and falls back to `direct` while tunnels are down. Elsewhere: start it after the tunnels. |
+| Rotation watcher | Yes on Windows: same logon entry. Elsewhere: run `node scripts/egress-watch.mjs`. |
 
 Start the pool before OpenCode. With the proxy setting on and the router or
 its tunnels down, model requests fail instead of leaking out direct.

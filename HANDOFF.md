@@ -18,6 +18,8 @@ Kullanıcının tek aracı: `opencode-egress` PowerShell komutu → panel → VP
 - `vendor/modelgate/assets/logo.svg` — AI üretimi (`gpt-image-2.5-sunburst`, studio-mcp), palet acid/coral/ink + fildişi. 128px PNG gömülü; `logo.png` (512) ve `logo-128.png` aynı görselin raster kopyaları.
 - Dashboard `public/index.html` — favicon + auth img + header img `/assets/logo.svg`.
 
+**Rotasyon (2026-10-23 sonrası):** OpenCode 2 V1 plugin hook'unu kaldırdı → `scripts/egress-watch.mjs` servis olay akışını izler, kotada egress'i çevirir. `router-boot.ps1` açılışta başlatır; panelde `izleyici` satırı.
+
 **Açık:**
 - Opencode `service.json` kalıcı `HTTPS_PROXY=127.0.0.1:8888` kullanır → router zorunlu. Çözüm: `scripts/router-boot.ps1` HKCU `Run` ile açılışta başlar; `[K]` router'ı öldürmez, `[X]` öldürür.
 - Görsel QA yapılmadı (playwright chromium kurulu değil, onaysız kurulum yasak).

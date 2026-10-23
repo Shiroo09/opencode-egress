@@ -13,6 +13,20 @@ $RouterPort = 8888
 $ControlPort = 8899
 $BasePort = 8891
 
+$node = (Get-Command node -ErrorAction SilentlyContinue).Source
+if (-not $node) { exit 1 }
+
+# OpenCode 2 dropped the plugin hook, so rotation lives in this watcher; it
+# survives panel restarts and serves every client of the shared server.
+function Watch-Running {
+    $p = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+        Where-Object { $_.CommandLine -match 'egress-watch\.mjs' } | Select-Object -First 1
+    return [bool]$p
+}
+if (-not (Watch-Running)) {
+    Start-Process $node -WindowStyle Hidden -ArgumentList (Join-Path $PSScriptRoot 'egress-watch.mjs')
+}
+
 if (Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $RouterPort -State Listen -ErrorAction SilentlyContinue) { exit 0 }
 
 $up = @()
@@ -24,7 +38,5 @@ if (Test-Path $HostsFile) {
 }
 $up += '--upstream', 'direct=direct'
 
-$node = (Get-Command node -ErrorAction SilentlyContinue).Source
-if (-not $node) { exit 1 }
 Start-Process $node -WindowStyle Hidden -ArgumentList (@(
         $RouterJs, '--port', $RouterPort, '--control', $ControlPort, '--state', $StateFile) + $up)
