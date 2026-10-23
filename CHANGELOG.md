@@ -13,6 +13,12 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   since the previous tag (conventional subjects grouped), plus
   `--print-notes` preview, a dirty-tree guard, and a key-material scan.
 - `scripts/release.sh` syncs a top-level `package.json` version in step.
+- Panel settings screen `[Y]`: add/remove VPS hosts, test SSH, modelgate port,
+  auto-start toggle and refresh interval, saved to
+  `~/.config/opencode-egress/config.json`. Every start/stop now asks first;
+  `[A]` offers all hosts or one and reports per-tunnel success, `[V]` picks the
+  exit from the live upstream list.
+- `scripts/panel.test.ps1`: asserts the yes/no parser behind the confirmations.
 - `scripts/router-boot.ps1`: starts the router at logon (HKCU `Run` entry) so
   opencode's fixed `127.0.0.1:8888` proxy never goes missing; with tunnels down
   the first connection falls back to `direct`. Panel `[K]` now stops tunnels and
@@ -20,6 +26,8 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
 
 ### Changed
 
+- modelgate now defaults to port **8790** (8787 is `web/server.js`); the panel
+  reports a busy port instead of silently reusing it.
 - Vendored gateway renamed **modelgate**: `vendor/zen-proxy/` → `vendor/modelgate/`.
   Panel functions `Start-Zen`/`Stop-Zen` → `Start-Gate`/`Stop-Gate`, `[Z]` label
   and config key `zenPort` → `gatePort` (old key still read).

@@ -14,7 +14,7 @@ Kullanıcının tek aracı: `opencode-egress` PowerShell komutu → panel → VP
 - `node scripts/smoke-zen.mjs` — health + marka + logo 200 + zincir (modelgate → router → `CONNECT opencode.ai:443`).
 - `node scripts/egress-router.test.mjs`, `node plugins/egress-rotate/test.mjs`, `panel.ps1` sözdizimi — yeşil.
 - `vendor/modelgate/` — `vendor/zen-proxy`'den yeniden adlandırıldı; upstream dosya adları (`zen-proxy.mjs` vb.) bilerek korundu, bkz. `NOTICE.md`.
-- `scripts/panel.ps1` — `Start-Gate`/`Stop-Gate`, `$GateJs`/`$GatePort`, `[Z] modelgate`; config `gatePort` (eski `zenPort` okunur).
+- `scripts/panel.ps1` — onaylı eylemler (`[A]` tümü/tek host, `[K]`/`[X]` sorar), `[Y]` ayarlar ekranı (host ekle/çıkar/test, modelgate portu 8790, otomatik başlatma, yenileme), `[V]` çıkış seçimi. Config: `~/.config/opencode-egress/config.json`.
 - `vendor/modelgate/assets/logo.svg` — AI üretimi (`gpt-image-2.5-sunburst`, studio-mcp), palet acid/coral/ink + fildişi. 128px PNG gömülü; `logo.png` (512) ve `logo-128.png` aynı görselin raster kopyaları.
 - Dashboard `public/index.html` — favicon + auth img + header img `/assets/logo.svg`.
 
