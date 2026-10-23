@@ -242,6 +242,7 @@ stops without a confirmation.
 | `Z` | Toggle modelgate |
 | `V` | Pick the exit from the live upstream list |
 | `D` / `N` | Pin `direct` / advance to the next egress |
+| `O` | Restart the OpenCode background service (asks; closing the TUI does not stop it) |
 | `Y` | Settings |
 | `Q` | Leave the panel (processes keep running) |
 

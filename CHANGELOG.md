@@ -21,6 +21,10 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   logon by `router-boot.ps1` and shown in the panel.
 - `scripts/egress-watch.test.mjs`: hermetic rotation test (stubbed service and
   router, strict on the `GET /status` verb the real router requires).
+- Panel shows the OpenCode service (`opencode`) and its pid, and `[O]` restarts
+  it via `opencode service restart`. Closing the TUI leaves that background
+  service running, which is why a "closed" OpenCode still retried on the spent
+  IP.
 - Panel settings screen `[Y]`: add/remove VPS hosts, test SSH, modelgate port,
   auto-start toggle and refresh interval, saved to
   `~/.config/opencode-egress/config.json`. Every start/stop now asks first;

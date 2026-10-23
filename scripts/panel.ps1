@@ -382,6 +382,18 @@ while ($true) {
         }
         $i++
     }
+    # OpenCode arka plan servisi TUI kapaninca yasar; kota/oturum durumu orada.
+    $svcFile = Join-Path $env:USERPROFILE '.local\state\opencode\service.json'
+    $ocPid = $null
+    if (Test-Path $svcFile) {
+        try { $ocPid = (Get-Content $svcFile -Raw | ConvertFrom-Json).pid } catch {}
+    }
+    if ($ocPid -and (Get-Process -Id $ocPid -ErrorAction SilentlyContinue)) {
+        Say ("  {0,-22} acik  pid {1}  [O] yeniden baslat" -f 'opencode', $ocPid) Green
+    } else {
+        Say ("  {0,-22} kapali" -f 'opencode') DarkGray
+    }
+
     $watchPid = Watch-Pid
     if ($watchPid) {
         Say ("  {0,-22} acik  pid {1}  (kota dolunca egress doner)" -f 'izleyici', $watchPid) Green
@@ -435,7 +447,7 @@ while ($true) {
 
     Say '' White
     Say '[A] ac   [K] tunelleri kapat   [X] her sey   [Z] modelgate' Yellow
-    Say '[V] cikis sec   [D] direct   [N] sonraki   [Y] ayarlar   [Q] cik' Yellow
+    Say '[V] cikis sec   [D] direct   [N] sonraki   [O] opencode   [Y] ayarlar   [Q] cik' Yellow
     End-Frame
 
     $deadline = (Get-Date).AddSeconds($Config.refreshSec)
@@ -471,6 +483,13 @@ while ($true) {
         }
         'N' { if (Listening $RouterPort) { Post-Json '/next' '{}' | Out-Null } else { Say 'router kapali' Red; Start-Sleep -Seconds 1 } }
         'Y' { Show-Settings }
+        'O' {
+            if (Ask 'opencode servisi yeniden baslatilsin mi? (acik oturumlar baglanir)') {
+                & opencode service restart 2>&1 | Out-Null
+                Start-Sleep -Seconds 3
+                Start-Watch
+            }
+        }
         'Q' { return }
     }
 }
