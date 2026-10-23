@@ -12,13 +12,14 @@ $RouterPort = 8888
 $ControlPort = 8899
 $BasePort = 8891
 $Control = "http://127.0.0.1:$ControlPort"
-$ZenJs = Join-Path $Root 'vendor\zen-proxy\zen-proxy.mjs'
+$GateJs = Join-Path $Root 'vendor\modelgate\zen-proxy.mjs'
 $ConfigFile = Join-Path $ConfigDir 'config.json'
-$ZenPort = 8787
+$GatePort = 8787
 if (Test-Path $ConfigFile) {
     try {
         $c = Get-Content $ConfigFile -Raw | ConvertFrom-Json
-        if ($c.zenPort) { $ZenPort = [int]$c.zenPort }
+        if ($c.gatePort) { $GatePort = [int]$c.gatePort }
+        elseif ($c.zenPort) { $GatePort = [int]$c.zenPort }  # eski config anahtari
     } catch {}
 }
 
@@ -86,30 +87,30 @@ function Stop-Pool {
         $pid_ = Listening ($BasePort + $i)
         if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
     }
-    Stop-Zen
+    Stop-Gate
 }
 
-function Start-Zen {
-    if (Listening $ZenPort) {
-        $h = Get-Json "http://127.0.0.1:$ZenPort/health"
+function Start-Gate {
+    if (Listening $GatePort) {
+        $h = Get-Json "http://127.0.0.1:$GatePort/health"
         if ($h -and $h.upstream) { return }
-        Say "port $ZenPort baska bir surecde dolu (zen-proxy degil)" Red
+        Say "port $GatePort baska bir surecde dolu (modelgate degil)" Red
         return
     }
-    if (-not (Test-Path $ZenJs)) { Say 'vendor/zen-proxy yok' Red; return }
-    if (-not (Listening $RouterPort)) { Say 'zen-proxy icin router acik olmali (A)' Red; return }
+    if (-not (Test-Path $GateJs)) { Say 'vendor/modelgate yok' Red; return }
+    if (-not (Listening $RouterPort)) { Say 'modelgate icin router acik olmali (A)' Red; return }
     $node = (Get-Command node -ErrorAction SilentlyContinue).Source
     if (-not $node) { Say 'node yok' Red; return }
     $env:NODE_USE_ENV_PROXY = '1'
     $env:HTTPS_PROXY = "http://127.0.0.1:$RouterPort"
     $env:NO_PROXY = 'localhost,127.0.0.1'
-    $env:PORT = "$ZenPort"
-    Start-Process $node -WindowStyle Hidden -ArgumentList $ZenJs
-    Say "zen-proxy aciliyor: 127.0.0.1:$ZenPort" DarkGray
+    $env:PORT = "$GatePort"
+    Start-Process $node -WindowStyle Hidden -ArgumentList $GateJs
+    Say "modelgate aciliyor: 127.0.0.1:$GatePort" DarkGray
 }
 
-function Stop-Zen {
-    $pid_ = Listening $ZenPort
+function Stop-Gate {
+    $pid_ = Listening $GatePort
     if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
 }
 
@@ -139,14 +140,14 @@ while ($true) {
         Say ("  {0,-22} 127.0.0.1:{1}  {2}" -f $h, $port, $mark) $color
         $i++
     }
-    $zenPid = Listening $ZenPort
-    $zenUp = if ($zenPid) { Get-Json "http://127.0.0.1:$ZenPort/health" } else { $null }
-    if ($zenPid -and $zenUp -and $zenUp.upstream) {
-        Say ("  {0,-22} acik  pid {1}  http://127.0.0.1:{2}" -f 'zen-proxy', $zenPid, $ZenPort) Green
-    } elseif ($zenPid) {
-        Say ("  {0,-22} port {1} dolu (zen-proxy degil)" -f 'zen-proxy', $ZenPort) Red
+    $gatePid = Listening $GatePort
+    $gateUp = if ($gatePid) { Get-Json "http://127.0.0.1:$GatePort/health" } else { $null }
+    if ($gatePid -and $gateUp -and $gateUp.upstream) {
+        Say ("  {0,-22} acik  pid {1}  http://127.0.0.1:{2}" -f 'modelgate', $gatePid, $GatePort) Green
+    } elseif ($gatePid) {
+        Say ("  {0,-22} port {1} dolu (modelgate degil)" -f 'modelgate', $GatePort) Red
     } else {
-        Say ("  {0,-22} kapali" -f 'zen-proxy') DarkGray
+        Say ("  {0,-22} kapali" -f 'modelgate') DarkGray
     }
     if ($status) {
         foreach ($u in $status.upstreams) {
@@ -185,7 +186,7 @@ while ($true) {
     }
 
     Say '' White
-    Say '[A] ac   [Z] zen-proxy   [P] port   [K] kapat   [D] direct   [V] VPS   [S] sonraki   [Q] cik' Yellow
+    Say '[A] ac   [Z] modelgate   [P] port   [K] kapat   [D] direct   [V] VPS   [S] sonraki   [Q] cik' Yellow
     Say 'tus bekleniyor, istekler 2 sn de bir yenilenir' DarkGray
 
     $deadline = (Get-Date).AddSeconds(2)
@@ -197,16 +198,16 @@ while ($true) {
     if (-not $key) { continue }
 
     switch ($key.Key) {
-        'A' { Start-Pool; Start-Sleep -Seconds 2; Start-Zen }
+        'A' { Start-Pool; Start-Sleep -Seconds 2; Start-Gate }
         'K' { Stop-Pool }
-        'Z' { if (Listening $ZenPort) { Stop-Zen } else { Start-Zen; Start-Sleep -Seconds 2 } }
+        'Z' { if (Listening $GatePort) { Stop-Gate } else { Start-Gate; Start-Sleep -Seconds 2 } }
         'P' {
-            $in = Read-Host "zen-proxy portu (simdi: $ZenPort)"
+            $in = Read-Host "modelgate portu (simdi: $GatePort)"
             if ($in -match '^\d+$' -and [int]$in -ge 1024 -and [int]$in -le 65535) {
-                Stop-Zen
-                $ZenPort = [int]$in
-                try { @{ zenPort = $ZenPort } | ConvertTo-Json | Set-Content $ConfigFile } catch {}
-                Say "zen-proxy portu artik: $ZenPort" Green
+                Stop-Gate
+                $GatePort = [int]$in
+                try { @{ gatePort = $GatePort } | ConvertTo-Json | Set-Content $ConfigFile } catch {}
+                Say "modelgate portu artik: $GatePort" Green
                 Start-Sleep -Seconds 1
             } elseif ($in) {
                 Say 'gecersiz port' Red

@@ -14,6 +14,15 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   `--print-notes` preview, a dirty-tree guard, and a key-material scan.
 - `scripts/release.sh` syncs a top-level `package.json` version in step.
 
+### Changed
+
+- Vendored gateway renamed **modelgate**: `vendor/zen-proxy/` → `vendor/modelgate/`.
+  Panel functions `Start-Zen`/`Stop-Zen` → `Start-Gate`/`Stop-Gate`, `[Z]` label
+  and config key `zenPort` → `gatePort` (old key still read).
+- Dashboard logo replaced with an AI-generated sunburst
+  (`gpt-image-2.5-sunburst`), palette acid/coral/ink on ivory, served as
+  `assets/logo.svg` (favicon + header/auth images pick it up).
+
 ### Fixed
 
 - `scripts/release.sh`: GitHub slug regex used a non-greedy `+?`, invalid

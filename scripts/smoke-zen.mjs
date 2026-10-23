@@ -1,5 +1,5 @@
-// smoke-zen.mjs — zen-proxy + egress-router zinciri tek seferlik doğrulama.
-// Router'ı test portunda başlatır, zen-proxy'yi NODE_USE_ENV_PROXY ile router
+// smoke-zen.mjs — modelgate + egress-router zinciri tek seferlik doğrulama.
+// Router'ı test portunda başlatır, modelgate'i NODE_USE_ENV_PROXY ile router
 // arkasında ayağa kaldırır, /health ve /recent uçlarını doğrular, temizlenir.
 // Çalıştır: node scripts/smoke-zen.mjs
 import net from "node:net";
@@ -35,7 +35,7 @@ const router = spawn(
   ],
   { stdio: ["ignore", "pipe", "pipe"] }
 );
-const zen = spawn(process.execPath, [path.join(ROOT, "vendor", "zen-proxy", "zen-proxy.mjs")], {
+const zen = spawn(process.execPath, [path.join(ROOT, "vendor", "modelgate", "zen-proxy.mjs")], {
   stdio: ["ignore", "pipe", "pipe"],
   env: {
     ...process.env,
@@ -46,7 +46,7 @@ const zen = spawn(process.execPath, [path.join(ROOT, "vendor", "zen-proxy", "zen
   },
 });
 router.stderr.on("data", (c) => process.stderr.write(`[router] ${c}`));
-zen.stderr.on("data", (c) => process.stderr.write(`[zen] ${c}`));
+zen.stderr.on("data", (c) => process.stderr.write(`[gate] ${c}`));
 
 try {
   await wait(3000);
@@ -75,7 +75,7 @@ try {
   assert.ok(rows.some((r) => String(r.host).includes("opencode.ai")), "istek router uzerinden gecti");
   console.log("recent:", JSON.stringify(rows).slice(0, 300));
 
-  console.log("smoke-zen: OK — zen-proxy -> egress-router zinciri calisiyor");
+  console.log("smoke-zen: OK — modelgate -> egress-router zinciri calisiyor");
 } finally {
   router.kill();
   zen.kill();
