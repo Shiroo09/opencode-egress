@@ -17,6 +17,7 @@ $GateJs = Join-Path $Root 'vendor\modelgate\zen-proxy.mjs'
 
 # 8787 kullanicinin web/server.js'inde; varsayilan 8790 (ayarlardan degistirilebilir).
 $Config = @{ gatePort = 8790; gateAuto = $true; refreshSec = 2 }
+try { $Host.UI.RawUI.WindowTitle = 'opencode-egress' } catch {}
 function Load-Config {
     if (-not (Test-Path $ConfigFile)) { return }
     try {
@@ -75,6 +76,14 @@ function Listening($port) {
     return $null
 }
 
+# Port dinliyor olabilir ama bizim ssh tünelimiz olmayabilir (baska surec).
+function Is-Tunnel($port) {
+    $pid_ = Listening $port
+    if (-not $pid_) { return $false }
+    $p = Get-Process -Id $pid_ -ErrorAction SilentlyContinue
+    return ($p -and $p.ProcessName -like 'ssh*')
+}
+
 function Get-Json($url) {
     try { return Invoke-RestMethod -Uri $url -TimeoutSec 3 } catch { return $null }
 }
@@ -93,7 +102,8 @@ function Hosts {
 
 function Set-Hosts($list) {
     if (-not (Test-Path $ConfigDir)) { New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null }
-    $list | Set-Content $HostsFile
+    if (@($list).Count) { @($list) | Set-Content $HostsFile }
+    else { Set-Content -Path $HostsFile -Value '' }  # son host silinince dosya bos kalsin
 }
 
 # --- Onay ve bekleme -------------------------------------------------------
@@ -131,18 +141,25 @@ function Restart-Router {
 
 # --- Tunnels --------------------------------------------------------------
 function Start-Tunnel($hostName, $port) {
-    if (Listening $port) { return $true }
-    Start-Process ssh -WindowStyle Hidden -ArgumentList @(
+    if (Is-Tunnel $port) { return $true }
+    if (Listening $port) { Say "port $port baska bir surecde dolu" Red; return $false }
+    $ssh = (Get-Command ssh -ErrorAction SilentlyContinue).Source
+    if (-not $ssh) { Say 'ssh bulunamadi' Red; return $false }
+    $log = Join-Path $env:TEMP "egress-ssh-$port.log"
+    Start-Process $ssh -WindowStyle Hidden -RedirectStandardError $log -ArgumentList @(
         '-N', '-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes', '-o', 'ConnectTimeout=6',
         '-o', 'ServerAliveInterval=30', '-o', 'ServerAliveCountMax=3',
         '-L', "127.0.0.1:${port}:127.0.0.1:8888", $hostName)
-    for ($k = 0; $k -lt 50; $k++) { Start-Sleep -Milliseconds 100; if (Listening $port) { return $true } }
+    for ($k = 0; $k -lt 50; $k++) { Start-Sleep -Milliseconds 100; if (Is-Tunnel $port) { return $true } }
+    # Basarisizligin sebebi ssh ciktisinda: son satiri goster.
+    $why = (Get-Content $log -Tail 1 -ErrorAction SilentlyContinue)
+    if ($why) { Say "  ssh: $why" Red }
     return $false
 }
 
 function Start-Pool {
     $list = @(Hosts)
-    if (-not $list) { Say 'host listesi bos — [Y] ayarlar' Red; Pause 'devam icin Enter'; return }
+    if (-not $list) { Say 'host listesi bos - [Y] ayarlar' Red; Pause 'devam icin Enter'; return }
 
     # Kullanıcıya ne açılacağını sor: tümü, tek host ya da iptal.
     $script:forceClear = $true
@@ -171,27 +188,37 @@ function Start-Pool {
     Start-Sleep -Seconds 1
 }
 
-function Stop-Pool {
-    if (-not (Ask 'Tuneller ve modelgate kapatilsin mi? Router acik kalir (opencode icin).')) { return }
+# Yalnizca kendi surecimizi oldur: portta baska bir uygulama olabilir.
+function Is-Our-Process($port, $pattern) {
+    $pid_ = Listening $port
+    if (-not $pid_) { return $false }
+    $c = Get-CimInstance Win32_Process -Filter "ProcessId=$pid_" -ErrorAction SilentlyContinue
+    return ($c -and $c.CommandLine -match $pattern)
+}
+
+function Stop-Tunnels {
     $list = @(Hosts)
     for ($i = 0; $i -lt $list.Count; $i++) {
-        $pid_ = Listening ($BasePort + $i)
-        if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
+        $port = $BasePort + $i
+        $pid_ = Listening $port
+        if ($pid_ -and (Is-Tunnel $port)) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
     }
+}
+
+function Stop-Pool {
+    if (-not (Ask 'Tuneller ve modelgate kapatilsin mi? Router acik kalir (opencode icin).')) { return }
+    Stop-Tunnels
     Stop-Gate
 }
 
 function Stop-All {
     if (-not (Ask 'HER SEY kapatilsin mi? (opencode baglantisi da kesilir)')) { return }
-    $list = @(Hosts)
-    for ($i = 0; $i -lt $list.Count; $i++) {
-        $pid_ = Listening ($BasePort + $i)
-        if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
-    }
+    Stop-Tunnels
     Stop-Gate
     foreach ($port in @($RouterPort, $ControlPort)) {
-        $pid_ = Listening $port
-        if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
+        if (Is-Our-Process $port 'egress-router') {
+            Stop-Process -Id (Listening $port) -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -216,8 +243,9 @@ function Start-Gate {
 }
 
 function Stop-Gate {
-    $pid_ = Listening $Config.gatePort
-    if ($pid_) { Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue }
+    if (Is-Our-Process $Config.gatePort 'zen-proxy') {
+        Stop-Process -Id (Listening $Config.gatePort) -Force -ErrorAction SilentlyContinue
+    }
 }
 
 # --- Ayarlar --------------------------------------------------------------
@@ -252,17 +280,21 @@ function Show-Settings {
                 $n = Read-Host '  [+] host ekle, [c] cikar, [t] test, bos = geri'
                 if ($n -match '^\+' -or $n -match '^ekle') {
                     $h = Read-Host '  host adi (ssh config alias ya da user@host)'
-                    if ($h -and $h -match '^[\w.@\-]+$') {
+                    if ($h -and $h -notmatch '^[\w.@\-]+$') { Write-Host '  gecersiz host adi' -ForegroundColor Red; Read-Host '  Enter' | Out-Null }
+                    elseif ($h -and ($list -contains $h)) { Write-Host '  bu host zaten listede' -ForegroundColor Yellow; Read-Host '  Enter' | Out-Null }
+                    elseif ($h) {
+                        Stop-Tunnels  # eski port eslemesi gecersiz kalmasin
                         $list += $h; Set-Hosts $list
                         Restart-Router | Out-Null
                         Write-Host '  eklendi; router yeni listeyle yeniden baslatildi' -ForegroundColor Green
                         Test-Host $h
-                    } elseif ($h) { Write-Host '  gecersiz host adi' -ForegroundColor Red }
+                    }
                     Read-Host '  Enter' | Out-Null
                 } elseif ($n -match '^(c|-)' -or $n -match '^cikar') {
                     $i = Read-Host '  cikarilacak numara'
                     if ($i -match '^\d+$' -and [int]$i -ge 1 -and [int]$i -le $list.Count) {
                         $drop = $list[([int]$i - 1)]
+                        Stop-Tunnels  # eski port eslemesi gecersiz kalmasin
                         $list = @($list | Where-Object { $_ -ne $drop })
                         Set-Hosts $list
                         Restart-Router | Out-Null
@@ -278,7 +310,11 @@ function Show-Settings {
                 $p = Read-Host ("  yeni modelgate portu (simdi {0})" -f $Config.gatePort)
                 if ($p -match '^\d+$' -and [int]$p -ge 1024 -and [int]$p -le 65535) {
                     if (Listening ([int]$p)) { Write-Host '  port dolu' -ForegroundColor Red }
-                    else { $Config.gatePort = [int]$p; Save-Config; Write-Host '  kaydedildi' -ForegroundColor Green }
+                    else {
+                        Stop-Gate           # eski porttaki modelgate kalmasin
+                        $Config.gatePort = [int]$p; Save-Config
+                        Write-Host '  kaydedildi ([Z] ile yeni portta ac)' -ForegroundColor Green
+                    }
                 } elseif ($p) { Write-Host '  gecersiz port' -ForegroundColor Red }
                 Read-Host '  Enter' | Out-Null
             }
@@ -315,9 +351,13 @@ while ($true) {
     foreach ($h in @(Hosts)) {
         $port = $BasePort + $i
         $pid_ = Listening $port
-        $mark = if ($pid_) { "tunel acik  pid $pid_" } else { 'tunel kapali' }
-        $color = if ($pid_) { 'Green' } else { 'DarkGray' }
-        Say ("  {0,-22} 127.0.0.1:{1}  {2}" -f $h, $port, $mark) $color
+        if ($pid_ -and (Is-Tunnel $port)) {
+            Say ("  {0,-22} 127.0.0.1:{1}  tunel acik  pid {2}" -f $h, $port, $pid_) Green
+        } elseif ($pid_) {
+            Say ("  {0,-22} 127.0.0.1:{1}  port dolu (baska surec)" -f $h, $port) Red
+        } else {
+            Say ("  {0,-22} 127.0.0.1:{1}  tunel kapali" -f $h, $port) DarkGray
+        }
         $i++
     }
     $gatePid = Listening $Config.gatePort
@@ -343,7 +383,7 @@ while ($true) {
     Say '' White
     Say 'istekler  (son gelen ustte, router gunlugu)' Cyan
     if ($routerPid -and -not $recent) {
-        Say '  router eski surum — [X] sonra [A] ile yeniden baslatin' Yellow
+        Say '  router eski surum - [X] sonra [A] ile yeniden baslatin' Yellow
     }
     $rows = @()
     if ($recent -and $recent.rows) { $rows = @($recent.rows) }

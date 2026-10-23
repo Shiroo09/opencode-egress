@@ -229,6 +229,38 @@ scripts/egress.sh setup-hint  my-vps       # print the server install command
 replaces the argument for the legacy commands, and `ROUTER_PORT`,
 `CONTROL_PORT`, `BASE_PORT` override `8888`/`8899`/`8891`.
 
+## Panel (Windows)
+
+`opencode-egress` (alias `oce`) opens the terminal panel. Nothing starts or
+stops without a confirmation.
+
+| Key | Action |
+| --- | --- |
+| `A` | Open tunnels — asks first: `e` for all hosts, a number for one, empty to cancel; reports per-tunnel success |
+| `K` | Close tunnels and modelgate (asks; the router stays up for OpenCode) |
+| `X` | Close everything including the router (asks; OpenCode loses its proxy) |
+| `Z` | Toggle modelgate |
+| `V` | Pick the exit from the live upstream list |
+| `D` / `N` | Pin `direct` / advance to the next egress |
+| `Y` | Settings |
+| `Q` | Leave the panel (processes keep running) |
+
+`Y` edits the things that used to need a file edit:
+
+1. **VPS list** — add, remove, or `ssh`-test a host. Saving restarts the router
+   with the new upstream list and closes tunnels whose port mapping changed.
+2. **modelgate port** — default `8790` (`8787` belongs to `web/server.js`); a
+   busy port is refused, not reused.
+3. **Start modelgate with `A`** — on/off.
+4. **Refresh interval** — seconds.
+5. Router port is read-only: OpenCode's `service.json` hard-codes `8888`.
+
+Settings persist in `~/.config/opencode-egress/config.json`
+(`gatePort`, `gateAuto`, `refreshSec`; the old `zenPort` key is still read).
+
+Checks: `powershell -NoProfile -File scripts/panel.test.ps1` (confirmation
+parser). Syntax: `powershell -NoProfile -Command "$e=$null; [System.Management.Automation.Language.Parser]::ParseFile('scripts/panel.ps1',[ref]$null,[ref]$e)"`.
+
 ## After a reboot
 
 | Piece | Comes back on its own? |
@@ -237,7 +269,7 @@ replaces the argument for the legacy commands, and `ROUTER_PORT`,
 | OpenCode proxy setting | Yes. It is stored in the service environment. |
 | Active egress choice | Yes. It is stored in `router-state.json`. |
 | SSH tunnels | No. They die with the session that opened them. |
-| Router | No. Start it after the tunnels. |
+| Router | Yes on Windows: `scripts/router-boot.ps1` runs from the `HKCU\...\Run` entry and falls back to `direct` while tunnels are down. Elsewhere: start it after the tunnels. |
 
 Start the pool before OpenCode. With the proxy setting on and the router or
 its tunnels down, model requests fail instead of leaking out direct.
