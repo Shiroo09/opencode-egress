@@ -20,6 +20,8 @@ Kullanıcının tek aracı: `opencode-egress` PowerShell komutu → panel → VP
 
 **Rotasyon (2026-10-23 sonrası):** OpenCode 2 V1 plugin hook'unu kaldırdı → `scripts/egress-watch.mjs` servis olay akışını izler, kotada egress'i çevirir. `router-boot.ps1` açılışta başlatır; panelde `izleyici` satırı.
 
+**Claude Code compaction (2026-10-24):** `scripts/ccgate.mjs` — Claude Code otomatik compaction'da modeli kendi kataloğunda arıyor; gateway modeli (`deepseek-v4.1-flash`) katalogda yok → "Prompt is too long · automatic compaction failed: Not logged in". ccgate katalog adlarını (`claude-sonnet-4-6` vb.) gerçek gateway modeline çevirir. `~/.claude/ccgate.json` (up/token/port), settings.json env ccgate'e bakar, `router-boot.ps1` açılışta başlatır.
+
 **Açık:**
 - Opencode `service.json` kalıcı `HTTPS_PROXY=127.0.0.1:8888` kullanır → router zorunlu. Çözüm: `scripts/router-boot.ps1` HKCU `Run` ile açılışta başlar; `[K]` router'ı öldürmez, `[X]` öldürür.
 - Görsel QA yapılmadı (playwright chromium kurulu değil, onaysız kurulum yasak).

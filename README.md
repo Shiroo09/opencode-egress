@@ -282,6 +282,43 @@ spent, rotates the router and re-sends the last user message on the new IP.
 The V1 plugin under `plugins/egress-rotate/` is kept for OpenCode 1.x installs;
 on 2.x it loads but its hook never fires, so the watcher is what rotates.
 
+## Claude Code compaction fix (ccgate)
+
+Claude Code resolves the model for its **automatic compaction** against its own
+catalog. Pointed straight at a gateway whose model names are not in that
+catalog, compaction fails and the client shows:
+
+```
+Prompt is too long · automatic compaction failed: Not logged in · Please run /login
+```
+
+`scripts/ccgate.mjs` sits in front of the gateway and fixes the name mismatch:
+Claude Code talks to it using catalog names (`claude-sonnet-4-6`,
+`claude-opus-4-6`, `claude-haiku-4-5`), ccgate rewrites `model` in the request
+body to the gateway's real model and forwards it.
+
+```json
+// ~/.claude/ccgate.json
+{ "up": "https://your-gateway.example/v1", "token": "…", "port": 18800 }
+```
+
+```json
+// ~/.claude/settings.json → env
+{
+  "ANTHROPIC_BASE_URL": "http://127.0.0.1:18800/v1",
+  "ANTHROPIC_API_KEY": "ccgate-local",
+  "ANTHROPIC_MODEL": "claude-sonnet-4-6",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-6",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5",
+  "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5"
+}
+```
+
+The name map lives in `scripts/ccgate.mjs` (`MAP`); edit it for your gateway.
+Started at logon by `scripts/router-boot.ps1` when `~/.claude/ccgate.json`
+exists. Test: `node scripts/ccgate.test.mjs`.
+
 ## After a reboot
 
 | Piece | Comes back on its own? |

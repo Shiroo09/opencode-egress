@@ -27,6 +27,17 @@ if (-not (Watch-Running)) {
     Start-Process $node -WindowStyle Hidden -ArgumentList (Join-Path $PSScriptRoot 'egress-watch.mjs')
 }
 
+# Claude Code'un compaction yolu modeli kendi katalogunda arar; ccgate ada
+# çevirir. Kimlik ~/.claude/ccgate.json'dan okunur; yoksa başlatılmaz.
+function Ccgate-Running {
+    $p = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+        Where-Object { $_.CommandLine -match 'ccgate\.mjs' } | Select-Object -First 1
+    return [bool]$p
+}
+if (-not (Ccgate-Running) -and (Test-Path (Join-Path $env:USERPROFILE '.claude\ccgate.json'))) {
+    Start-Process $node -WindowStyle Hidden -ArgumentList (Join-Path $PSScriptRoot 'ccgate.mjs')
+}
+
 if (Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $RouterPort -State Listen -ErrorAction SilentlyContinue) { exit 0 }
 
 $up = @()

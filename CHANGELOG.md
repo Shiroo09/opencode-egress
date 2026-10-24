@@ -21,6 +21,14 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   logon by `router-boot.ps1` and shown in the panel.
 - `scripts/egress-watch.test.mjs`: hermetic rotation test (stubbed service and
   router, strict on the `GET /status` verb the real router requires).
+- `scripts/ccgate.mjs`: local model-name gateway for Claude Code. Compaction
+  resolves the session model against Claude Code's own catalog, so a gateway
+  model (`deepseek-v4.1-flash`) made every compaction fail with
+  "Prompt is too long · automatic compaction failed: Not logged in". ccgate
+  accepts catalog names, rewrites `model` in the body to the gateway model
+  (including `[1m]` suffixes and family aliases), collapses the doubled `/v1`
+  path and answers `/models`. Config: `~/.claude/ccgate.json`.
+- `scripts/ccgate.test.mjs`: name mapping, body rewrite and path normalisation.
 - Panel `[O]` also repairs a broken CLI after an npm update: `@opencode/cli`
   2.1.4 shipped without its `postinstall`, which made every `opencode` command
   fail with "postinstall script was not run". Detected by probing
