@@ -485,6 +485,15 @@ while ($true) {
         'Y' { Show-Settings }
         'O' {
             if (Ask 'opencode servisi yeniden baslatilsin mi? (acik oturumlar baglanir)') {
+                # npm guncellemesi postinstall'i atlayabiliyor ve CLI tamamen
+                # oluyor; elle calistirinca duzeliyor (2.1.4'te yasandi).
+                $cli = Join-Path $env:APPDATA 'npm\node_modules\@opencode\cli'
+                $po = Join-Path $cli 'postinstall.mjs'
+                $probe = (& opencode --version 2>&1 | Out-String)
+                if ($probe -match 'postinstall' -and (Test-Path $po)) {
+                    Say 'opencode postinstall eksik, onariliyor...' Yellow
+                    & node $po 2>&1 | Out-Null
+                }
                 & opencode service restart 2>&1 | Out-Null
                 Start-Sleep -Seconds 3
                 Start-Watch

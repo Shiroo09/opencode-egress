@@ -21,6 +21,10 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   logon by `router-boot.ps1` and shown in the panel.
 - `scripts/egress-watch.test.mjs`: hermetic rotation test (stubbed service and
   router, strict on the `GET /status` verb the real router requires).
+- Panel `[O]` also repairs a broken CLI after an npm update: `@opencode/cli`
+  2.1.4 shipped without its `postinstall`, which made every `opencode` command
+  fail with "postinstall script was not run". Detected by probing
+  `opencode --version` and re-running `postinstall.mjs`.
 - Panel shows the OpenCode service (`opencode`) and its pid, and `[O]` restarts
   it via `opencode service restart`. Closing the TUI leaves that background
   service running, which is why a "closed" OpenCode still retried on the spent
