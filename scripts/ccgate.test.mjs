@@ -7,9 +7,9 @@ assert.equal(upstreamPath("/v1/v1/messages?beta=true"), "/v1/messages?beta=true"
 
 assert.equal(resolveModel("claude-sonnet-4-6"), "deepseek-v4.1-flash");
 assert.equal(resolveModel("claude-sonnet-4-6[1m]"), "deepseek-v4.1-flash", "1m eki yok sayilir");
-assert.equal(resolveModel("claude-opus-4-6"), "mimo-v2.6-pro");
-assert.equal(resolveModel("opus"), "mimo-v2.6-pro", "aile takma adi");
-assert.equal(resolveModel("claude-haiku-4-5"), "glm-5.3");
+assert.equal(resolveModel("claude-opus-4-6"), "deepseek-v4.1-flash");
+assert.equal(resolveModel("opus"), "deepseek-v4.1-flash", "aile takma adi");
+assert.equal(resolveModel("claude-haiku-4-5"), "qwen3.8-flash-next", "kucuk slot bos donmemeli");
 assert.equal(resolveModel("gemini-4-argon"), "gemini-4-argon", "bilinmeyen ad oldugu gibi");
 assert.equal(resolveModel(""), "deepseek-v4.1-flash", "bos ad varsayilana");
 
@@ -19,7 +19,7 @@ assert.equal(
 );
 assert.equal(
   rewriteBody('{"model":"claude-opus-4-6","nested":{"model":"claude-haiku-4-5"}}'),
-  '{"model":"mimo-v2.6-pro","nested":{"model":"glm-5.3"}}',
+  '{"model":"deepseek-v4.1-flash","nested":{"model":"qwen3.8-flash-next"}}',
   "ic ice model alanlari da cevrilir"
 );
 assert.equal(rewriteBody('{"messages":[]}'), '{"messages":[]}', "model yoksa dokunulmaz");

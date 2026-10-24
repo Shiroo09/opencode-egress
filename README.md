@@ -319,6 +319,23 @@ The name map lives in `scripts/ccgate.mjs` (`MAP`); edit it for your gateway.
 Started at logon by `scripts/router-boot.ps1` when `~/.claude/ccgate.json`
 exists. Test: `node scripts/ccgate.test.mjs`.
 
+**Protocol:** ccgate forwards the request unchanged — only `model` is rewritten.
+Gateways that speak the Anthropic API (`/v1/messages`) therefore keep
+`cache_control` prompt caching, `thinking`, `tools` and `/v1/messages/count_tokens`
+end to end. Do not translate to OpenAI `/chat/completions`: caching is lost.
+
+**Choosing models** (measured 2026-10-24 on evren-llmapi):
+
+| Slot | Model | Why |
+| --- | --- | --- |
+| `claude-sonnet-4-6`, `claude-opus-4-6` | `deepseek-v4.1-flash` | only model that solved the hard diagnosis task; caches correctly |
+| `claude-haiku-4-5` | `qwen3.8-flash-next` | fastest, and returns text at 64 tokens |
+
+Models that emit reasoning tokens (`deepseek`, `glm`) return **empty text** when
+`max_tokens` is small (64–200) — which is exactly what the haiku slot uses for
+titles and summaries. Keep a light, non-reasoning model in that slot.
+
+
 ## After a reboot
 
 | Piece | Comes back on its own? |

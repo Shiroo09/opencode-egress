@@ -29,6 +29,13 @@ GitHub Release on the tag `vX.Y.Z` with the same notes.
   (including `[1m]` suffixes and family aliases), collapses the doubled `/v1`
   path and answers `/models`. Config: `~/.claude/ccgate.json`.
 - `scripts/ccgate.test.mjs`: name mapping, body rewrite and path normalisation.
+
+### Changed
+
+- ccgate model map, measured against the gateway: `opus`/`sonnet` →
+  `deepseek-v4.1-flash` (only model that solved the hard diagnosis probe),
+  `haiku` → `qwen3.8-flash-next`. `glm-5.3` and `deepseek` return empty text at
+  the 64–200 token budgets the haiku slot uses, so they must not sit there.
 - Panel `[O]` also repairs a broken CLI after an npm update: `@opencode/cli`
   2.1.4 shipped without its `postinstall`, which made every `opencode` command
   fail with "postinstall script was not run". Detected by probing

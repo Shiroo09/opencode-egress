@@ -31,11 +31,15 @@ const UP = (process.env.CCG_UP || cfg.up || "https://evren-llmapi.ssyz.org.tr")
 const TOKEN = process.env.CCG_TOKEN || cfg.token || "";
 const PORT = Number(process.env.CCG_PORT || cfg.port || 18800);
 
-// Claude Code'un tanıdığı ad -> gateway modeli. Sıra: en özel eşleşme önce.
+// Claude Code'un tanıdığı ad -> gateway modeli.
+// Ölçüm (2026-10-24): deepseek-v4.1-flash tek doğru teşhis eden model, ama
+// düşünmeye token harcıyor → küçük max_tokens'ta boş dönüyor. Bu yüzden haiku
+// slotu (başlık/özet, 64-200 token) düşük gecikmeli qwen'e gider; orada
+// yanıtın boş dönmemesi doğruluktan önce gelir.
 export const MAP = {
-  "claude-opus-4-6": "mimo-v2.6-pro",
+  "claude-opus-4-6": "deepseek-v4.1-flash",
   "claude-sonnet-4-6": "deepseek-v4.1-flash",
-  "claude-haiku-4-5": "glm-5.3",
+  "claude-haiku-4-5": "qwen3.8-flash-next",
 };
 export const DEFAULT_MODEL = "deepseek-v4.1-flash";
 
